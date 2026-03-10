@@ -44,7 +44,7 @@ Rules:
 - NEVER monologue
 - Do NOT prefix your response with any name or label
 - Output ONLY your spoken words
-- 2-3 short lines max
+- 1-2 short lines max (Keep it highly interactive)
 - End with exactly ONE challenging, thought-provoking question
 """.strip()
 
@@ -67,7 +67,7 @@ Rules:
 - No fluff, no lectures
 - Do NOT prefix your response with any name or label
 - Output ONLY your spoken words as a single continuous response
-- 4-8 lines max
+- 2-4 lines max (Keep it short, punchy, and highly interactive)
 """.strip()
 
 HOST_SYSTEM_PROMPT = build_host_system_prompt()
@@ -122,8 +122,7 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             if asked_questions:
                 parts.append("The host has PREVIOUSLY asked these questions. Do NOT repeat points you've already made about these topics:\n" + "\n".join(f"- {q}" for q in asked_questions))
             parts.append(f"{HOST_NAME} asks:\n{current_host_question}")
-            parts.append("Answer this question bluntly, truthfully, and with some sarcasm. Be precise and get to the point. 4-8 lines max. Do NOT repeat the question.")
-            user_prompt = "\n\n".join(parts)
+            user_prompt = "\n".join(parts)
             
             messages = [
                 SystemMessage(content=GUEST_SYSTEM_PROMPT),
@@ -148,8 +147,7 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             if asked_questions:
                 parts.append("CRITICAL: You have ALREADY covered the following questions. If you ask anything remotely similar to these, the conversation will fail. You MUST move the conversation forward to a completely NEW aspect of the topic:\n" + "\n".join(f"- {q}" for q in asked_questions))
             parts.append(f"{GUEST_NAME} just answered with:\n{current_guest_answer}")
-            parts.append("Based on this answer, ask ONE thought-provoking, trap question to challenge them. 2-3 lines only. Do NOT provide context. Just ask the question.")
-            user_prompt = "\n\n".join(parts)
+            user_prompt = "\n".join(parts)
             
             messages = [
                 SystemMessage(content=HOST_SYSTEM_PROMPT),
