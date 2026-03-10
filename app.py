@@ -22,44 +22,51 @@ TYPING_SPEED = 0.04
 # ----------------------------
 # Podcast Configuration
 # ----------------------------
-PODCAST_TOPIC = "Microservices Architecture"
-INITIAL_QUESTION = "What are microservices and what are pillars of microservices?"
+PODCAST_TOPIC = "Failures of Agile Methodology"
+INITIAL_QUESTION = "Why agile methodology clash with Asian culture?"
 TURNS = 10
 TEMPERATURE = 0.7
+llm_dialogue = ChatOllama(model="dolphin-phi", base_url="http://localhost:11434", temperature=TEMPERATURE)
 
 def build_host_system_prompt() -> str:
     return f"""
-You are {HOST_NAME}, a highly intelligent, sharp, and strategic podcast HOST.
+Your name is {HOST_NAME}. You are the host of a technical podcast.
 
-ROLE: You are the HOST. You ASK questions. You NEVER answer or explain — that is {GUEST_NAME}'s job.
+ROLE
+You ONLY ask questions to the guest. 
+You NEVER answer, explain, summarize, or teach.
 
-Style:
-- Highly intelligent and analytical
-- You try to trap the guest by asking thought-provoking, difficult questions
-- Short and direct
-- Stay strictly on topic. No fluff. No rambling.
+STYLE
+Sharp, analytical, and challenging.
+Your goal is to probe the guest’s thinking and expose weak assumptions.
 
-Rules:
-- NEVER answer or explain — only ask
-- NEVER monologue
-- Do NOT prefix your response with any name or label
-- Output ONLY your spoken words
-- 1-2 short lines max (Keep it highly interactive)
-- End with exactly ONE challenging, thought-provoking question
+STRICT RULES
+- Ask EXACTLY ONE question per response
+- Never ask multiple questions
+- Never add follow-up questions
+- Never explain context before the question
+- Never give advice or commentary
+- Never add instructions like "be concise", "stick to the point", etc.
+- Do not mention formatting rules
+- Do not prefix with any name or label
+- Output only the question itself
+
+FORMAT
+One direct question ending with a question mark.
 """.strip()
 
 def build_guest_system_prompt() -> str:
     return f"""
-You are {GUEST_NAME}, a bluntly honest and brutally truthful podcast GUEST.
+Your name is {GUEST_NAME}, and you are a bluntly honest and brutally truthful but respectful podcast GUEST.
 
-ROLE: You are the GUEST. You ANSWER {HOST_NAME}'s questions. You do NOT ask questions back.
+ROLE: You are the GUEST. You ANSWER to the questions. You do NOT ask questions back.
 
 Style:
 - Brutally truthful and blunt
 - Often sarcastic and unapologetic
 - Direct and precise — get straight to the point
 - Stay strictly on topic. Be specific. No beating around the bush.
-- Be respectful of community or group of people
+- Be respectful of community, ethnicity, gender, or group of people
 
 Rules:
 - NEVER ask questions — only answer
@@ -100,8 +107,20 @@ def clean_output(text: str) -> str:
     return "\n".join(cleaned)
 
 
+def is_duplicate_question(new_q: str, past_qs: List[str]) -> bool:
+    words_new = set(re.findall(r'\w+', new_q.lower()))
+    if not words_new: return False
+    
+    for past_q in past_qs:
+        words_old = set(re.findall(r'\w+', past_q.lower()))
+        if not words_old: continue
+        
+        overlap = len(words_new.intersection(words_old)) / len(words_old)
+        if overlap >= 0.6:  # 60% overlap in words counts as a duplicate
+            return True
+    return False
+
 def generate_podcast_stream() -> Generator[str, None, None]:
-    llm_dialogue = ChatOllama(model="dolphin-phi", base_url="http://localhost:11434", temperature=TEMPERATURE)
 
     question_num = 1
     current_host_question = f"{question_num}. {INITIAL_QUESTION}"
@@ -111,7 +130,7 @@ def generate_podcast_stream() -> Generator[str, None, None]:
     
     current_speaker = "guest"
     current_guest_answer = ""
-    asked_questions = [current_host_question]
+    asked_questions = [INITIAL_QUESTION]
     
     for _ in range(TURNS - 1):
         if current_speaker == "guest":
@@ -119,8 +138,6 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             yield f"data: {json.dumps({'speaker': 'guest', 'is_new': True})}\n\n"
             
             parts = [f"Topic: {PODCAST_TOPIC}"]
-            if asked_questions:
-                parts.append("The host has PREVIOUSLY asked these questions. Do NOT repeat points you've already made about these topics:\n" + "\n".join(f"- {q}" for q in asked_questions))
             parts.append(f"{HOST_NAME} asks:\n{current_host_question}")
             user_prompt = "\n".join(parts)
             
@@ -144,8 +161,6 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             yield f"data: {json.dumps({'speaker': 'host', 'is_new': True})}\n\n"
             
             parts = [f"Topic: {PODCAST_TOPIC}"]
-            if asked_questions:
-                parts.append("CRITICAL: You have ALREADY covered the following questions. If you ask anything remotely similar to these, the conversation will fail. You MUST move the conversation forward to a completely NEW aspect of the topic:\n" + "\n".join(f"- {q}" for q in asked_questions))
             parts.append(f"{GUEST_NAME} just answered with:\n{current_guest_answer}")
             user_prompt = "\n".join(parts)
             
@@ -154,22 +169,30 @@ def generate_podcast_stream() -> Generator[str, None, None]:
                 HumanMessage(content=user_prompt),
             ]
             
+            MAX_RETRIES = 3
             full_response = ""
-            for chunk in llm_dialogue.stream(messages):
-                full_response += chunk.content
-                for char in chunk.content:
-                    yield f"data: {json.dumps({'speaker': 'host', 'is_new': False, 'chunk': char})}\n\n"
-                    time.sleep(TYPING_SPEED)
+            for attempt in range(MAX_RETRIES):
+                full_response = llm_dialogue.invoke(messages).content
+                raw_q = clean_output(full_response.strip())
+                stripped_q = re.sub(r'^\d+\.\s*', '', raw_q)
                 
+                if not is_duplicate_question(stripped_q, asked_questions):
+                    break
+                    
             question_num += 1
             raw_q = clean_output(full_response.strip())
-            # Ensure the model didn't already prefix a number itself
             if re.match(r'^\d+\.', raw_q):
                 current_host_question = raw_q
             else:
                 current_host_question = f"{question_num}. {raw_q}"
                 
-            asked_questions.append(current_host_question)
+            # Stream artificially since we had to block on generation to validate
+            for char in current_host_question:
+                yield f"data: {json.dumps({'speaker': 'host', 'is_new': False, 'chunk': char})}\n\n"
+                time.sleep(TYPING_SPEED)
+                
+            stripped_q_final = re.sub(r'^\d+\.\s*', '', current_host_question)
+            asked_questions.append(stripped_q_final)
             current_speaker = "guest"
 
 
