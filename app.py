@@ -16,8 +16,8 @@ app = Flask(__name__)
 HOST_NAME = "Stella"
 GUEST_NAME = "Simone"
 
-# Speed of typing effect (seconds per chunk). Higher = slower reading speed.
-TYPING_SPEED = 0.2
+# Speed of typing effect (seconds per character). Higher = slower reading speed.
+TYPING_SPEED = 0.04
 
 def build_host_system_prompt() -> str:
     return f"""
@@ -51,6 +51,7 @@ Style:
 - Often sarcastic and unapologetic
 - Direct and precise — get straight to the point
 - Stay strictly on topic. Be specific. No beating around the bush.
+- Be respectful of community or group of people
 
 Rules:
 - NEVER ask questions — only answer
@@ -128,8 +129,9 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             full_response = ""
             for chunk in llm_dialogue.stream(messages):
                 full_response += chunk.content
-                yield f"data: {json.dumps({'speaker': 'guest', 'is_new': False, 'chunk': chunk.content})}\n\n"
-                time.sleep(TYPING_SPEED)
+                for char in chunk.content:
+                    yield f"data: {json.dumps({'speaker': 'guest', 'is_new': False, 'chunk': char})}\n\n"
+                    time.sleep(TYPING_SPEED)
                 
             current_guest_answer = clean_output(full_response.strip())
             current_speaker = "host"
@@ -151,8 +153,9 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             full_response = ""
             for chunk in llm_dialogue.stream(messages):
                 full_response += chunk.content
-                yield f"data: {json.dumps({'speaker': 'host', 'is_new': False, 'chunk': chunk.content})}\n\n"
-                time.sleep(TYPING_SPEED)
+                for char in chunk.content:
+                    yield f"data: {json.dumps({'speaker': 'host', 'is_new': False, 'chunk': char})}\n\n"
+                    time.sleep(TYPING_SPEED)
                 
             current_host_question = clean_output(full_response.strip())
             current_speaker = "guest"
