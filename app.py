@@ -19,6 +19,14 @@ GUEST_NAME = "Simone"
 # Speed of typing effect (seconds per character). Higher = slower reading speed.
 TYPING_SPEED = 0.04
 
+# ----------------------------
+# Podcast Configuration
+# ----------------------------
+PODCAST_TOPIC = "Microservices Architecture"
+INITIAL_QUESTION = "What are microservices and what are pillars of microservices?"
+TURNS = 10
+TEMPERATURE = 0.7
+
 def build_host_system_prompt() -> str:
     return f"""
 You are {HOST_NAME}, a highly intelligent, sharp, and strategic podcast HOST.
@@ -93,30 +101,26 @@ def clean_output(text: str) -> str:
 
 
 def generate_podcast_stream() -> Generator[str, None, None]:
-    #topic = "Why agile methodology does not work for Asian?"
-    #initial_question = "Agile is all the rage globally, but many say it crashes and burns in Asian corporate cultures. Why is that?"
+    llm_dialogue = ChatOllama(model="dolphin-phi", base_url="http://localhost:11434", temperature=TEMPERATURE)
 
-    topic = "Agile is not for Asians"
-    initial_question = "Why agile methodology does not work for Asians?"
-   
-    turns = 15
-    temperature = 0.7
-
-    llm_dialogue = ChatOllama(model="dolphin-phi", base_url="http://localhost:11434", temperature=temperature)
+    question_num = 1
+    current_host_question = f"{question_num}. {INITIAL_QUESTION}"
 
     # 1. Host asks initial question (pre-rendered)
-    yield f"data: {json.dumps({'speaker': 'host', 'is_new': True, 'chunk': initial_question})}\n\n"
+    yield f"data: {json.dumps({'speaker': 'host', 'is_new': True, 'chunk': current_host_question})}\n\n"
     
-    current_host_question = initial_question
     current_speaker = "guest"
     current_guest_answer = ""
+    asked_questions = [current_host_question]
     
-    for _ in range(turns - 1):
+    for _ in range(TURNS - 1):
         if current_speaker == "guest":
             # Guest replies
             yield f"data: {json.dumps({'speaker': 'guest', 'is_new': True})}\n\n"
             
-            parts = [f"Topic: {topic}"]
+            parts = [f"Topic: {PODCAST_TOPIC}"]
+            if asked_questions:
+                parts.append("The host has PREVIOUSLY asked these questions. Do NOT repeat points you've already made about these topics:\n" + "\n".join(f"- {q}" for q in asked_questions))
             parts.append(f"{HOST_NAME} asks:\n{current_host_question}")
             parts.append("Answer this question bluntly, truthfully, and with some sarcasm. Be precise and get to the point. 4-8 lines max. Do NOT repeat the question.")
             user_prompt = "\n\n".join(parts)
@@ -140,7 +144,9 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             # Host replies
             yield f"data: {json.dumps({'speaker': 'host', 'is_new': True})}\n\n"
             
-            parts = [f"Topic: {topic}"]
+            parts = [f"Topic: {PODCAST_TOPIC}"]
+            if asked_questions:
+                parts.append("CRITICAL: You have ALREADY covered the following questions. If you ask anything remotely similar to these, the conversation will fail. You MUST move the conversation forward to a completely NEW aspect of the topic:\n" + "\n".join(f"- {q}" for q in asked_questions))
             parts.append(f"{GUEST_NAME} just answered with:\n{current_guest_answer}")
             parts.append("Based on this answer, ask ONE thought-provoking, trap question to challenge them. 2-3 lines only. Do NOT provide context. Just ask the question.")
             user_prompt = "\n\n".join(parts)
@@ -157,7 +163,15 @@ def generate_podcast_stream() -> Generator[str, None, None]:
                     yield f"data: {json.dumps({'speaker': 'host', 'is_new': False, 'chunk': char})}\n\n"
                     time.sleep(TYPING_SPEED)
                 
-            current_host_question = clean_output(full_response.strip())
+            question_num += 1
+            raw_q = clean_output(full_response.strip())
+            # Ensure the model didn't already prefix a number itself
+            if re.match(r'^\d+\.', raw_q):
+                current_host_question = raw_q
+            else:
+                current_host_question = f"{question_num}. {raw_q}"
+                
+            asked_questions.append(current_host_question)
             current_speaker = "guest"
 
 
@@ -167,7 +181,7 @@ def generate_podcast_stream() -> Generator[str, None, None]:
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", topic=PODCAST_TOPIC)
 
 @app.route("/stream")
 def stream():

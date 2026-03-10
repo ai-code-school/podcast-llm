@@ -14,7 +14,7 @@
     <div class="app-container">
         <header class="header">
             <h1>🎙️ Stella & Simone Podcast</h1>
-            <p>Topic: Why agile methodology does not work for Asian?</p>
+            <p>Topic: {{ topic }}</p>
         </header>
 
         <div class="chat-container" id="chat-container">
@@ -24,7 +24,6 @@
 
     <script>
         const chatContainer = document.getElementById('chat-container');
-        const MAX_MESSAGES = 4;
         let currentMessageBody = null;
         let currentThinkingBubble = null;
 
@@ -87,12 +86,6 @@
 
                 chatContainer.appendChild(messageEl);
                 currentMessageBody = textBody;
-
-                // Enforce max 4 messages by removing oldest
-                const messages = chatContainer.querySelectorAll('.message');
-                if (messages.length > MAX_MESSAGES) {
-                    chatContainer.removeChild(messages[0]);
-                }
 
                 // Scroll to bottom
                 chatContainer.scrollTop = chatContainer.scrollHeight;
