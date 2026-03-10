@@ -35,8 +35,8 @@ from langchain_core.messages import SystemMessage, HumanMessage
 # Character names (change these to rename characters)
 # ----------------------------
 
-HOST_NAME = "Pinky"
-GUEST_NAME = "Gulabo"
+HOST_NAME = "Stella"
+GUEST_NAME = "Simone"
 
 
 # ----------------------------
@@ -256,8 +256,8 @@ def main():
     # ----------------------------
     # HARDCODED CONFIG (EDIT HERE)
     # ----------------------------
-    topic = "Why agile methodology does not work for Asian?"
-    initial_question = "Agile is all the rage globally, but many say it crashes and burns in Asian corporate cultures. Why is that?"
+    topic = "Agile is not for Asians"
+    initial_question = "Why agile methodology does not work for Asians?"
     turns = 15                   # total turns (guest, host, guest...)
     temperature = 0.7           # 0.6-0.9 = lively energy
 

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Podcast</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header class="header">
+            <h1>🎙️ Stella & Simone Podcast</h1>
+            <p>Topic: Why agile methodology does not work for Asian?</p>
+        </header>
+
+        <div class="chat-container" id="chat-container">
+            <!-- Messages will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const MAX_MESSAGES = 4;
+        let currentMessageBody = null;
+        let currentThinkingBubble = null;
+
+        // Connect to the Server-Sent Events stream
+        const evtSource = new EventSource('/stream');
+
+        evtSource.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+
+            if (data.is_new) {
+                // Remove thinking bubble if it exists
+                if (currentThinkingBubble) {
+                    currentThinkingBubble.remove();
+                    currentThinkingBubble = null;
+                }
+
+                // Create new message container
+                const messageEl = document.createElement('div');
+                messageEl.classList.add('message', data.speaker);
+
+                // Avatar
+                const avatarContainer = document.createElement('div');
+                avatarContainer.classList.add('avatar-container');
+                const avatarImg = document.createElement('img');
+                avatarImg.src = `/static/${data.speaker}.png`; // requires host.png and guest.png in static folder
+                const avatarName = document.createElement('div');
+                avatarName.classList.add('avatar-name');
+                avatarName.textContent = data.speaker === 'host' ? 'Stella' : 'Simone';
+
+                avatarContainer.appendChild(avatarImg);
+                avatarContainer.appendChild(avatarName);
+
+                // Bubble
+                const bubbleEl = document.createElement('div');
+                bubbleEl.classList.add('bubble');
+
+                // Text body
+                const textBody = document.createElement('div');
+                textBody.classList.add('text-body');
+
+                // Thinking indicator (will be replaced by text)
+                const thinking = document.createElement('div');
+                thinking.classList.add('thinking');
+                thinking.innerHTML = '<span></span><span></span><span></span>';
+
+                currentThinkingBubble = thinking;
+
+                bubbleEl.appendChild(textBody);
+                bubbleEl.appendChild(thinking);
+
+                messageEl.appendChild(avatarContainer);
+                messageEl.appendChild(bubbleEl);
+
+                // If the initial event came with the full chunk (like the hardcoded start msg)
+                if (data.chunk) {
+                    thinking.remove();
+                    currentThinkingBubble = null;
+                    textBody.innerHTML = data.chunk;
+                }
+
+                chatContainer.appendChild(messageEl);
+                currentMessageBody = textBody;
+
+                // Enforce max 4 messages by removing oldest
+                const messages = chatContainer.querySelectorAll('.message');
+                if (messages.length > MAX_MESSAGES) {
+                    chatContainer.removeChild(messages[0]);
+                }
+
+                // Scroll to bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            } else if (data.chunk) {
+                // Remove thinking bubble if it's there
+                if (currentThinkingBubble) {
+                    currentThinkingBubble.remove();
+                    currentThinkingBubble = null;
+                }
+
+                // Append chunk to the current message
+                if (currentMessageBody) {
+                    // Formatting newlines from LLM output
+                    const formattedChunk = data.chunk.replace(/\n/g, '<br>');
+                    currentMessageBody.innerHTML += formattedChunk;
+                    // Scroll to bottom
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }
+        };
+
+        evtSource.onerror = function (err) {
+            console.error("EventSource failed:", err);
+            evtSource.close();
+        };
+
+    </script>
+</body>
+
+</html>
