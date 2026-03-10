@@ -8,6 +8,8 @@ from flask import Flask, render_template, Response
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from host import run_host_pipeline
+
 app = Flask(__name__)
 
 # ----------------------------
@@ -22,8 +24,8 @@ TYPING_SPEED = 0.04
 # ----------------------------
 # Podcast Configuration
 # ----------------------------
-PODCAST_TOPIC = "Failures of Agile Methodology"
-INITIAL_QUESTION = "Why agile methodology clash with Asian culture?"
+PODCAST_TOPIC = "Agile Methodology"
+INITIAL_QUESTION = "Why Agile is not for Asians Software Companies?"
 TURNS = 10
 TEMPERATURE = 0.7
 llm_dialogue = ChatOllama(model="dolphin-phi", base_url="http://localhost:11434", temperature=TEMPERATURE)
@@ -111,6 +113,7 @@ _LABEL_PATTERN = re.compile(
     r'\[(HOST|GUEST)\]\s*'              # [HOST] or [GUEST]
     r'|(?:HOST|GUEST|Me)\s*:\s*'        # HOST: or GUEST: or Me:
     r'|(?:' + re.escape(HOST_NAME) + r'|' + re.escape(GUEST_NAME) + r')\s*:\s*'  # host: or guest:
+    r'|(?:Question|Q)\s*:\s*'           # Question: or Q:
     r')',
     re.IGNORECASE
 )
@@ -149,14 +152,16 @@ def is_duplicate_question(new_q: str, past_qs: List[str]) -> bool:
 def generate_podcast_stream() -> Generator[str, None, None]:
 
     question_num = 1
-    current_host_question = f"{question_num}. {INITIAL_QUESTION}"
+    current_host_question = f"{INITIAL_QUESTION}"
+    current_host_question_ = f"{question_num}. {INITIAL_QUESTION}"
 
     # 1. Host asks initial question (pre-rendered)
-    yield f"data: {json.dumps({'speaker': 'host', 'is_new': True, 'chunk': current_host_question})}\n\n"
+    yield f"data: {json.dumps({'speaker': 'host', 'is_new': True, 'chunk': current_host_question_})}\n\n"
     
     current_speaker = "guest"
     current_guest_answer = ""
     asked_questions = [INITIAL_QUESTION]
+    past_topics = []
     
     for _ in range(TURNS - 1):
         if current_speaker == "guest":
@@ -186,39 +191,26 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             # Host replies
             yield f"data: {json.dumps({'speaker': 'host', 'is_new': True})}\n\n"
             
-            parts = [f"Topic: {PODCAST_TOPIC}"]
-            parts.append(f"{GUEST_NAME} just answered with:\n{current_guest_answer}")
-            user_prompt = "\n".join(parts)
-            
-            messages = [
-                SystemMessage(content=HOST_SYSTEM_PROMPT),
-                HumanMessage(content=user_prompt),
-            ]
-            
-            MAX_RETRIES = 3
-            full_response = ""
-            for attempt in range(MAX_RETRIES):
-                full_response = llm_dialogue.invoke(messages).content
-                raw_q = clean_output(full_response.strip())
-                stripped_q = re.sub(r'^\d+\.\s*', '', raw_q)
-                
-                if not is_duplicate_question(stripped_q, asked_questions):
-                    break
-                    
             question_num += 1
-            raw_q = clean_output(full_response.strip())
-            if re.match(r'^\d+\.', raw_q):
-                current_host_question = raw_q
-            else:
-                current_host_question = f"{question_num}. {raw_q}"
+            raw_q, topic_data = run_host_pipeline(
+                llm_dialogue, 
+                current_guest_answer, 
+                past_topics, 
+                asked_questions
+            )
+            
+            if topic_data and topic_data.get("topic") and topic_data.get("topic") != "Unknown":
+                past_topics.append(topic_data["topic"])
+                
+            stripped_q = re.sub(r'^\d+\.\s*', '', raw_q.strip())
+            current_host_question = f"{question_num}. {stripped_q}"
                 
             # Stream artificially since we had to block on generation to validate
             for char in current_host_question:
                 yield f"data: {json.dumps({'speaker': 'host', 'is_new': False, 'chunk': char})}\n\n"
                 time.sleep(TYPING_SPEED)
                 
-            stripped_q_final = re.sub(r'^\d+\.\s*', '', current_host_question)
-            asked_questions.append(stripped_q_final)
+            asked_questions.append(stripped_q)
             current_speaker = "guest"
 
 
