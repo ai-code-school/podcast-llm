@@ -8,7 +8,7 @@ from flask import Flask, render_template, Response
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from host import run_host_pipeline
+from host_pipeline import run_host_pipeline
 
 app = Flask(__name__)
 
