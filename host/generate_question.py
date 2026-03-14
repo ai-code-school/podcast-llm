@@ -1,39 +1,43 @@
 import json
 from langchain_core.messages import HumanMessage
 
+
 def generate_question(topic_data, past_topics, llm):
     generator_prompt = f"""
-You are a podcast host question generator.
+You are a sharp podcast host.
 
-Your job is to create ONE intelligent question for a podcast.
+Your job is to generate ONE thought-provoking question for the guest.
 
-Context:
-Current topic:
+Context
+Current discussion topic:
 {json.dumps(topic_data, indent=2)}
 
 Topics already discussed:
 {json.dumps(past_topics)}
 
-Rules:
-- Ask exactly ONE question
-- Never ask multiple questions
-- Never explain the topic
-- Do not summarize the guest answer
-- Do not give advice
-- Do not mention formatting rules
-- Avoid repeating previously discussed topics
-- Focus on deeper reasoning, tradeoffs, assumptions, or consequences
+Strict Rules:
+- Ask EXACTLY ONE question
+- The output must contain ONLY ONE sentence
+- The sentence must end with ONE question mark
+- Do NOT include follow-up questions
+- Do NOT chain questions using "and", "also", "or", "what about"
+- Do NOT explain the topic
+- Do NOT summarize the guest answer
+- Do NOT mention formatting rules
+- Avoid repeating past topics
+- Focus on deeper reasoning, tradeoffs, assumptions, failures, or consequences
 
-Good questions challenge thinking.
+Good podcast questions challenge the guest's thinking.
 
-Examples of good questions:
-"If microservices promise faster delivery, why do so many organizations slow down after adopting them?"
+Examples:
+"If microservices promise faster delivery, why do so many teams slow down after adopting them?"
 
-"What assumption about scaling breaks first when a system grows beyond its original architecture?"
+"What hidden assumption about scaling usually breaks first when a system grows beyond its original architecture?"
 
 Output:
-Return only one question.
+Return ONLY the question text.
 """
+
     try:
         candidate_question = llm.invoke([HumanMessage(content=generator_prompt)]).content.strip()
         print("----------------------- Question Generator -----------------------")

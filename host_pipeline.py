@@ -10,6 +10,7 @@ from host.host_question import host_question
 
 def run_host_pipeline(
     llm: ChatOllama, 
+    podcast_topic: str,
     guest_answer: str, 
     past_topics: List[str], 
     previous_questions: List[str]
@@ -32,7 +33,7 @@ def run_host_pipeline(
     # ---------------------------------------------------------
     # STEP 1: Topic Extractor
     # ---------------------------------------------------------
-    topic_data = extract_topic(guest_answer, llm_json)
+    topic_data = extract_topic(guest_answer, podcast_topic, llm_json)
 
     # ---------------------------------------------------------
     # STEP 2 & 3: Question Generator & Validator Loop

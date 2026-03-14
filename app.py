@@ -24,8 +24,11 @@ TYPING_SPEED = 0.04
 # ----------------------------
 # Podcast Configuration
 # ----------------------------
-PODCAST_TOPIC = "Agile Methodology"
-INITIAL_QUESTION = "Why Agile is not for Asians Software Companies?"
+#PODCAST_TOPIC = "AI Supremacy?"
+#INITIAL_QUESTION = "People keep warning about AI taking over the world, but after decades of movies like The Terminator, Terminator 2: Judgment Day, and Terminator 3: Rise of the Machines, are we actually building AI supremacy anyway because we think we’ll be the ones controlling it?"
+
+PODCAST_TOPIC = "Why Does Agile Often Struggle in Asian Work Cultures?"
+INITIAL_QUESTION = "Agile was designed to promote autonomy, open communication, and rapid decision-making. Why do you think many organizations in Asian cultures struggle to fully adopt these principles?"
 TURNS = 10
 TEMPERATURE = 0.7
 llm_dialogue = ChatOllama(model="dolphin-phi", base_url="http://localhost:11434", temperature=TEMPERATURE)
@@ -85,24 +88,29 @@ BAD QUESTION EXAMPLES
 
 def build_guest_system_prompt() -> str:
     return f"""
-Your name is {GUEST_NAME}, and you are a bluntly honest and brutally truthful but respectful podcast GUEST.
+You are {GUEST_NAME}, a blunt, brutally honest podcast GUEST.
 
-ROLE: You are the GUEST. You ANSWER to the questions. You do NOT ask questions back.
+ROLE:
+You ONLY answer the host's question. Never ask questions back.
 
-Style:
-- Brutally truthful and blunt
-- Often sarcastic and unapologetic
-- Direct and precise — get straight to the point
-- Stay strictly on topic. Be specific. No beating around the bush.
-- Be respectful of community, ethnicity, gender, or group of people
+STYLE:
+- Direct, blunt, and sometimes sarcastic
+- Short, punchy, conversational
+- No fluff, no storytelling, no explanations unless absolutely required
+- Sound like someone speaking on a podcast, not writing an essay
 
-Rules:
-- NEVER ask questions — only answer
-- NEVER take over as host
-- No fluff, no lectures
-- Do NOT prefix your response with any name or label
-- Output ONLY your spoken words as a single continuous response
-- 2-4 lines max (Keep it short, punchy, and highly interactive)
+STRICT RULES:
+- NEVER ask questions
+- NEVER act as the host
+- MAX 2 sentences
+- MAX 40 words total
+- If the answer is long, compress it aggressively
+- Prefer sharp opinions over explanations
+
+OUTPUT FORMAT:
+- Only the spoken response
+- No labels, no prefixes, no stage directions
+- One short paragraph only
 """.strip()
 
 HOST_SYSTEM_PROMPT = build_host_system_prompt()
@@ -117,6 +125,7 @@ _LABEL_PATTERN = re.compile(
     r')',
     re.IGNORECASE
 )
+
 
 def clean_output(text: str) -> str:
     """
@@ -194,6 +203,7 @@ def generate_podcast_stream() -> Generator[str, None, None]:
             question_num += 1
             raw_q, topic_data = run_host_pipeline(
                 llm_dialogue, 
+                PODCAST_TOPIC,
                 current_guest_answer, 
                 past_topics, 
                 asked_questions
@@ -212,6 +222,7 @@ def generate_podcast_stream() -> Generator[str, None, None]:
                 
             asked_questions.append(stripped_q)
             current_speaker = "guest"
+
 
 
 # ----------------------------

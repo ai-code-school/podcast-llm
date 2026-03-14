@@ -1,7 +1,19 @@
 from langchain_core.messages import HumanMessage
 import re
 
-def host_question(llm, topic_data):
+def host_question(llm, question):
+
+    q = question.strip()
+
+    # ensure capitalization
+    q = q[0].upper() + q[1:]
+
+    # ensure one question mark
+    if "?" in q:
+        q = q.split("?")[0] + "?"
+
+    return q
+    
     host_prompt = f"""
     You are a technical podcast host.
 
@@ -14,7 +26,7 @@ def host_question(llm, topic_data):
     - Do not prefix with any name
 
     Question:
-    {topic_data}
+    {question}
     """
     # We yield from this step so it can be streamed in app.py if desired, 
     # but the current architecture streams from the main loop. 
