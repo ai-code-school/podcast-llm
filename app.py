@@ -15,8 +15,8 @@ app = Flask(__name__)
 # ----------------------------
 # Core Logic
 # ----------------------------
-HOST_NAME = "Stella"
-GUEST_NAME = "Simone"
+HOST_NAME = "Billo"
+GUEST_NAME = "Jagga"
 
 # Speed of typing effect (seconds per character). Higher = slower reading speed.
 TYPING_SPEED = 0.04

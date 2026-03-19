@@ -13,7 +13,7 @@
 
     <div class="app-container">
         <header class="header">
-            <h1>🎙️ Billo & Jagga Show</h1>
+            <h1>🎙️ Stella & Simone Podcast</h1>
             <p>Topic: {{ topic }}</p>
         </header>
 
@@ -48,10 +48,10 @@
                 const avatarContainer = document.createElement('div');
                 avatarContainer.classList.add('avatar-container');
                 const avatarImg = document.createElement('img');
-                avatarImg.src = `/static/billo/${data.speaker}.png`; // requires host.png and guest.png in static folder
+                avatarImg.src = `/static/${data.speaker}.png`; // requires host.png and guest.png in static folder
                 const avatarName = document.createElement('div');
                 avatarName.classList.add('avatar-name');
-                avatarName.textContent = data.speaker === 'host' ? 'Billo' : 'Jagga';
+                avatarName.textContent = data.speaker === 'host' ? 'Stella' : 'Simone';
 
                 avatarContainer.appendChild(avatarImg);
                 avatarContainer.appendChild(avatarName);
